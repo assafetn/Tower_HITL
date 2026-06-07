@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>בדיקות HITL — תקשורת כתובה</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <style>
+/* ═══ MIGDAL DESIGN TOKENS ═══ */
+:root {
+  --mig-ink:#020140; --mig-ink-2:#212058;
+  --mig-blue:#3d65e3; --mig-blue-deep:#2a49ad;
+  --mig-green:#a2eb9a; --mig-green-600:#8fe086; --mig-green-700:#74cf6f;
+  --mig-white:#ffffff; --mig-paper:#fbfbfd; --mig-mist:#f3f6fb;
+  --mig-line-soft:#e2e9f3; --mig-line:#d4ddec;
+  --mig-slate-400:#9aa3bd; --mig-slate-600:#5b658a;
+  --success:#3f8568; --success-bg:#e8f5f0;
+  --warning:#8f7636; --warning-bg:#fdf6e3;
+  --error:#b65058; --error-bg:#fdf0f1;
+  --sh-1:0 1px 2px rgba(2,1,64,.06),0 1px 1px rgba(2,1,64,.04);
+  --sh-2:0 4px 12px rgba(2,1,64,.08);
+  --sh-3:0 12px 32px rgba(2,1,64,.10);
+  --sh-focus:0 0 0 3px rgba(61,101,227,.35);
+  --r-xs:4px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
+  --header-h:64px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:"Assistant","Heebo",system-ui,sans-serif;font-size:14px;color:var(--mig-ink);background:var(--mig-paper);direction:rtl}
+button{font-family:inherit;cursor:pointer} input,textarea{font-family:inherit}
+#csvInput{display:none}
+
+/* ═══ HEADER ═══ */
+.header{position:sticky;top:0;z-index:200;background:var(--mig-ink);height:var(--header-h);display:flex;align-items:center;padding:0 24px;gap:16px;box-shadow:0 2px 12px rgba(2,1,64,.3)}
+.header-logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.header-logo img{height:44px;width:auto;display:block}
+.logo-fallback{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+.logo-fallback .fn{font-size:19px;font-weight:800;color:#fff;line-height:1;letter-spacing:-.3px}
+.logo-fallback .fd{font-size:10px;font-weight:600;color:var(--mig-green);letter-spacing:2px;text-transform:uppercase}
+.header-divider{width:1px;height:28px;background:rgba(255,255,255,.2);flex-shrink:0}
+.header-title{flex:1}
+.header-title h1{font-size:17px;font-weight:700;color:#fff}
+.header-title p{font-size:11px;color:rgba(255,255,255,.6);margin-top:1px}
+.header-actions{display:flex;gap:8px;align-items:center}
+
+/* ═══ BUTTONS ═══ */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border:none;border-radius:var(--r-pill);font-size:13px;font-weight:600;transition:background .15s,transform .1s;white-space:nowrap}
+.btn:focus-visible{outline:none;box-shadow:var(--sh-focus)} .btn:active{transform:scale(.97)}
+.btn-primary{background:var(--mig-green);color:var(--mig-ink)} .btn-primary:hover{background:var(--mig-green-600)}
+.btn-secondary{background:var(--mig-ink-2);color:#fff} .btn-secondary:hover{background:var(--mig-blue-deep)}
+.btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)} .btn-ghost:hover{background:rgba(255,255,255,.2)}
+.btn-danger{background:var(--error);color:#fff} .btn-danger:hover{background:#9e3f46}
+.btn svg{flex-shrink:0}
+
+/* ═══ MAIN ═══ */
+.main{max-width:1920px;margin:0 auto;padding:16px 24px 32px}
+
+/* ═══ FILTER CARD ═══ */
+.filter-card{background:#fff;border-radius:var(--r-md);padding:14px 18px;margin-bottom:12px;box-shadow:var(--sh-1);border:1px solid var(--mig-line)}
+.date-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.filter-label{font-weight:700;font-size:13px;color:var(--mig-ink);white-space:nowrap}
+.filter-dates{display:flex;align-items:center;gap:8px}
+.filter-dates label{font-size:12px;color:var(--mig-slate-600)}
+.filter-dates input[type="date"]{padding:6px 10px;border:1px solid var(--mig-line);border-radius:var(--r-sm);font-size:13px;color:var(--mig-ink);background:#fff;direction:ltr}
+.filter-dates input[type="date"]:focus{outline:none;border-color:var(--mig-blue);box-shadow:var(--sh-focus)}
+.quick-btns{display:flex;gap:6px;flex-wrap:wrap}
+.qbtn{padding:5px 13px;border-radius:var(--r-pill);border:1px solid var(--mig-line);background:#fff;font-size:12px;color:var(--mig-slate-600);transition:all .12s;font-family:inherit}
+.qbtn:hover{border-color:var(--mig-blue);color:var(--mig-blue)}
+.qbtn.active{background:var(--mig-ink);color:#fff;border-color:var(--mig-ink);font-weight:600}
+.filter-count{margin-right:auto;font-size:12px;color:var(--mig-slate-600);background:var(--mig-mist);padding:4px 12px;border-radius:var(--r-pill);border:1px solid var(--mig-line-soft);white-space:nowrap}
+.divider-line{height:1px;background:var(--mig-line-soft);margin:10px 0}
+.status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.status-row-label{font-size:12px;color:var(--mig-slate-600);font-weight:600;white-space:nowrap}
+.sfbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r-pill);border:1px solid var(--mig-line);background:#fff;font-size:12px;color:var(--mig-slate-600);transition:all .12s;font-family:inherit;font-weight:500}
+.sfbtn:hover{border-color:var(--mig-blue);color:var(--mig-blue)}
+.sfbtn.active{background:var(--mig-ink);color:#fff;border-color:var(--mig-ink);font-weight:600}
+.sfbtn.sf-done.active{background:var(--success);border-color:var(--success)}
+.sfbtn.sf-partial.active{background:var(--mig-blue);border-color:var(--mig-blue)}
+.sfbtn .sf-badge{background:rgba(255,255,255,.25);border-radius:var(--r-pill);padding:1px 6px;font-size:11px;font-weight:700;min-width:20px;text-align:center}
+.sfbtn:not(.active) .sf-badge{background:var(--mig-mist);color:var(--mig-slate-600)}
+
+/* ═══ KPI CARDS ═══ */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:12px}
+.kpi-card{background:#fff;border-radius:var(--r-md);padding:14px 16px;box-shadow:var(--sh-2);border:1px solid var(--mig-line);position:relative;overflow:hidden}
+.kpi-card.kpi-total-rows{background:linear-gradient(135deg,rgba(61,101,227,.06),rgba(61,101,227,.12));border-color:var(--mig-blue);border-right:3px solid var(--mig-blue)}
+.kpi-card.kpi-success-rate{background:linear-gradient(135deg,rgba(162,235,154,.1),rgba(162,235,154,.22));border-color:var(--mig-green-700);border-right:3px solid var(--mig-green-700)}
+.kpi-title{font-size:11px;font-weight:700;color:var(--mig-slate-600);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi-value{font-size:30px;font-weight:800;color:var(--mig-ink);line-height:1}
+.kpi-sub{font-size:11px;color:var(--mig-slate-400);margin-top:3px}
+.kpi-stats{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.kpi-stat{font-size:11px;display:flex;align-items:center;gap:3px}
+.kpi-stat.good{color:var(--success)} .kpi-stat.bad{color:var(--error)} .kpi-stat.pend{color:var(--mig-slate-400)}
+.kpi-progress{margin-top:10px;height:5px;background:var(--mig-line);border-radius:var(--r-pill);overflow:hidden}
+.kpi-progress-bar{height:100%;background:var(--mig-green-700);border-radius:var(--r-pill);transition:width .4s}
+
+/* ═══ BULK BAR ═══ */
+.bulk-bar{background:var(--mig-ink);color:#fff;border-radius:var(--r-md);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;position:sticky;top:calc(var(--header-h) + 8px);z-index:100;box-shadow:var(--sh-3);animation:slide-in .2s ease}
+.bulk-bar.hidden{display:none}
+@keyframes slide-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.bulk-count{font-size:13px;font-weight:700;flex-shrink:0}
+.bulk-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bulk-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r-pill);border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s}
+.bulk-btn:focus-visible{box-shadow:var(--sh-focus);outline:none}
+.bb-good{background:var(--success);color:#fff} .bb-good:hover{background:#34725a}
+.bb-bad{background:var(--warning-bg);color:#5c4a1e;border:1px solid #c9a84c} .bb-bad:hover{background:#f0e7c8}
+.bb-reset{background:var(--mig-ink-2);color:#fff} .bb-reset:hover{background:var(--mig-blue-deep)}
+.bb-delete{background:var(--error);color:#fff} .bb-delete:hover{background:#9e3f46}
+.bb-desel{background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.25)} .bb-desel:hover{background:rgba(255,255,255,.1);color:#fff}
+
+/* ═══ TABLE ═══ */
+.table-card{background:#fff;border-radius:var(--r-md);box-shadow:var(--sh-2);border:1px solid var(--mig-line);overflow:hidden}
+.table-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--mig-line)}
+.table-toolbar h3{font-size:15px;font-weight:700;color:var(--mig-ink)}
+.table-scroll{overflow-x:auto;max-height:calc(100vh - 360px);min-height:260px}
+.table-scroll::-webkit-scrollbar{width:5px;height:5px}
+.table-scroll::-webkit-scrollbar-track{background:var(--mig-mist)}
+.table-scroll::-webkit-scrollbar-thumb{background:var(--mig-line);border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{position:sticky;top:0;z-index:10}
+thead th{padding:9px 10px;text-align:right;font-size:11px;font-weight:700;color:var(--mig-slate-600);background:var(--mig-mist);border-bottom:2px solid var(--mig-line);white-space:nowrap;user-select:none}
+thead th.th-cb{width:40px;text-align:center;padding:9px 6px}
+tbody tr{border-bottom:1px solid var(--mig-line-soft);transition:background .1s}
+tbody tr:nth-child(even){background:var(--mig-mist)}
+tbody tr:hover{background:#eef2fb}
+tbody tr.row-selected{background:rgba(61,101,227,.08)!important}
+td{padding:7px 10px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.n{width:40px;text-align:center;color:var(--mig-slate-400);font-size:11px}
+td.cb-cell{width:40px;text-align:center;padding:7px 6px}
+td.dot-cell{width:26px;text-align:center;padding:4px}
+td.uuid-cell{max-width:120px;white-space:nowrap}
+td.date-cell{white-space:nowrap;font-size:12px;width:100px}
+td.wrap-cell{max-width:180px}
+td.eval-cell{min-width:110px;max-width:180px}
+td.notes-cell{min-width:140px;max-width:220px;overflow:visible;white-space:normal}
+.row-cb,.all-cb{width:16px;height:16px;cursor:pointer;accent-color:var(--mig-blue);border-radius:var(--r-xs)}
+.status-dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle}
+.status-dot.all{background:var(--success)} .status-dot.part{background:#d4a017} .status-dot.none{background:var(--mig-line)}
+
+/* ═══ UUID COPY ═══ */
+.uuid-inner{display:inline-flex;align-items:center;gap:4px}
+.uuid-text{font-family:monospace;font-size:12px;color:var(--mig-slate-400)}
+.copy-btn{background:none;border:none;cursor:pointer;padding:2px;color:var(--mig-slate-400);display:inline-flex;align-items:center;vertical-align:middle;border-radius:var(--r-xs);transition:color .15s}
+.copy-btn:hover{color:var(--mig-blue)}
+.copy-btn.copied{color:var(--success)}
+
+/* ═══ EVAL BUTTONS (icon-only) ═══ */
+.eval-wrap{display:flex;flex-direction:column;gap:4px}
+.eval-val{font-size:11px;line-height:1.35;max-height:36px;overflow:hidden;color:var(--mig-ink)}
+.eval-val.na{color:var(--mig-slate-400);font-style:italic}
+.eval-btns{display:flex;gap:5px}
+.ebtn-icon{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--mig-line);background:#fff;border-radius:6px;cursor:pointer;transition:all .12s;color:var(--mig-slate-400);padding:0}
+.ebtn-icon:focus-visible{outline:none;box-shadow:var(--sh-focus)}
+.ebtn-icon[data-v="good"]:hover:not(.sel-good){background:rgba(63,133,104,.1)}
+.ebtn-icon[data-v="bad"]:hover:not(.sel-bad){background:rgba(182,80,88,.1)}
+.ebtn-icon.sel-good{background:var(--success);border-color:var(--success);color:#fff}
+.ebtn-icon.sel-bad{background:var(--error);border-color:var(--error);color:#fff}
+
+/* ═══ NOTES TEXTAREA ═══ */
+.notes-ta{display:block;width:100%;min-width:120px;border:1.5px solid transparent;background:var(--mig-mist);border-radius:var(--r-sm);padding:5px 8px;font-size:12px;font-family:inherit;resize:vertical;line-height:1.4;color:var(--mig-ink);transition:border-color .15s,background .15s}
+.notes-ta::placeholder{color:var(--mig-slate-400)}
+.notes-ta:focus{outline:none;border-color:var(--mig-blue);background:#fff;box-shadow:var(--sh-focus)}
+
+/* ═══ EMPTY / PAGINATION / FOOTER ═══ */
+.empty{padding:56px 24px;text-align:center;color:var(--mig-slate-600)}
+.empty-icon{font-size:44px;margin-bottom:10px} .empty h3{font-size:16px;color:var(--mig-ink);margin-bottom:6px} .empty p{font-size:13px;margin-bottom:14px}
+.pagination{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 16px;border-top:1px solid var(--mig-line-soft);flex-wrap:wrap}
+.pager{padding:5px 10px;border:1px solid var(--mig-line);border-radius:var(--r-sm);background:#fff;font-size:12px;color:var(--mig-ink);transition:all .1s;min-width:32px;text-align:center;font-family:inherit}
+.pager:hover:not(:disabled):not(.active){border-color:var(--mig-blue);color:var(--mig-blue)}
+.pager.active{background:var(--mig-blue);color:#fff;border-color:var(--mig-blue);font-weight:700}
+.pager:disabled{opacity:.38;cursor:default}
+.pager-info{font-size:12px;color:var(--mig-slate-400)} .pager-sep{color:var(--mig-slate-400);font-size:13px}
+.footer{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;font-size:11px;color:var(--mig-slate-400);margin-top:16px}
+
+/* ═══ TOAST ═══ */
+.toast-host{position:fixed;bottom:24px;left:24px;z-index:900;display:flex;flex-direction:column-reverse;gap:8px;pointer-events:none}
+.toast{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;min-width:280px;max-width:420px;background:var(--mig-ink);color:#fff;border-radius:var(--r-md);box-shadow:var(--sh-3);font-size:13px;line-height:1.45;animation:toast-in .22s ease;pointer-events:all;transition:opacity .3s;border-right:4px solid transparent}
+.toast.success{border-right-color:var(--mig-green)} .toast.error{border-right-color:#ff7a7a} .toast.warning{border-right-color:#f0c96a} .toast.info{border-right-color:var(--mig-blue)}
+.toast-ico{font-size:16px;flex-shrink:0;margin-top:1px} .toast-msg{flex:1}
+@keyframes toast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══ MODAL / CONFIRM ═══ */
+.modal-bg{position:fixed;inset:0;background:rgba(2,1,64,.5);z-index:500;display:none;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:var(--r-lg);padding:24px 28px;max-width:520px;width:90%;box-shadow:var(--sh-3)}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:10px;color:var(--error)}
+.modal p{font-size:13px;line-height:1.65;color:var(--mig-ink);margin-bottom:18px;white-space:pre-line}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+.confirm-bg{position:fixed;inset:0;background:rgba(2,1,64,.5);z-index:600;display:none;align-items:center;justify-content:center}
+.confirm-bg.open{display:flex}
+.confirm{background:#fff;border-radius:var(--r-lg);padding:24px 28px;max-width:420px;width:90%;box-shadow:var(--sh-3)}
+.confirm h3{font-size:15px;font-weight:700;margin-bottom:8px;color:var(--mig-ink)}
+.confirm p{font-size:13px;color:var(--mig-slate-600);margin-bottom:20px;line-height:1.6}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-start}
+
+/* ═══ OVERLAYS ═══ */
+.drop-overlay{position:fixed;inset:0;background:rgba(2,1,64,.88);z-index:800;display:none;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700;pointer-events:none}
+.drop-overlay.active{display:flex} .drop-box{text-align:center} .drop-ico{font-size:52px;margin-bottom:10px}
+.spinner-overlay{position:fixed;inset:0;background:rgba(255,255,255,.8);z-index:400;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-size:14px;color:var(--mig-slate-600)}
+.spinner-overlay.active{display:flex}
+.spinner{width:30px;height:30px;border:3px solid var(--mig-line);border-top-color:var(--mig-blue);border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:1366px){.main{padding:12px 16px 28px}.kpi-row{grid-template-columns:repeat(auto-fill,minmax(152px,1fr))}}
+  </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="header">
+  <div class="header-logo">
+    <!-- Replace src with full base64 of migdal-data-ai-logo.png when available -->
+    <img id="logo-data-ai"
+      src="data:image/png;base64,LOGO_PLACEHOLDER"
+      alt="מגדל DATA & AI"
+      style="height:44px;width:auto;display:block;"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+    <div class="logo-fallback" style="display:none">
+      <span class="fn">מגדל</span>
+      <span class="fd">DATA &amp; AI</span>
+    </div>
+  </div>
+  <div class="header-divider"></div>
+  <div class="header-title">
+    <h1>HITL תקשורת כתובה — בדיקות</h1>
+    <p>ניטור תוצאות AI בדואר אלקטרוני</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" id="btnUpload">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      העלאת CSV
+    </button>
+    <input type="file" id="csvInput" accept=".csv">
+    <button class="btn btn-ghost" id="btnSave">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      שמור
+    </button>
+    <button class="btn btn-ghost" id="btnExport">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      ייצוא Excel
+    </button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- ═══ FILTER CARD ═══ -->
+  <div class="filter-card">
+    <div class="date-row">
+      <span class="filter-label">סינון לפי תאריך:</span>
+      <div class="filter-dates">
+        <label>מתאריך</label><input type="date" id="dateFrom">
+        <label>עד</label><input type="date" id="dateTo">
+      </div>
+      <div class="quick-btns">
+        <button class="qbtn" data-q="today">היום</button>
+        <button class="qbtn" data-q="yesterday">אתמול</button>
+        <button class="qbtn" data-q="thisweek">השבוע</button>
+        <button class="qbtn" data-q="lastweek">שבוע שעבר</button>
+        <button class="qbtn" data-q="thismonth">החודש</button>
+        <button class="qbtn active" data-q="all">הכל</button>
+      </div>
+      <span class="filter-count" id="filterCount">מציג 0 מתוך 0 שורות</span>
+    </div>
+    <div class="divider-line"></div>
+    <div class="status-row" id="statusFilterRow"></div>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <!-- ═══ BULK BAR ═══ -->
+  <div class="bulk-bar hidden" id="bulkBar" role="toolbar" aria-label="פעולות קבוצתיות">
+    <span class="bulk-count" id="bulkCount">נבחרו 0 שורות</span>
+    <div class="bulk-actions">
+      <button class="bulk-btn bb-good" id="bbGood"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> סימון תקין</button>
+      <button class="bulk-btn bb-bad" id="bbBad"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> סימון שגוי</button>
+      <button class="bulk-btn bb-reset" id="bbReset"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> איפוס הערכה</button>
+      <button class="bulk-btn bb-delete" id="bbDelete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> מחיקת שורות</button>
+      <button class="bulk-btn bb-desel" id="bbDesel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ביטול בחירה</button>
+    </div>
+  </div>
+
+  <!-- ═══ TABLE ═══ -->
+  <div class="table-card">
+    <div class="table-toolbar"><h3>נתוני בדיקה</h3></div>
+    <div class="table-scroll" id="tableScroll">
+      <div class="empty" id="emptyNoData">
+        <div class="empty-icon">📋</div><h3>אין נתונים להצגה</h3><p>העלה קובץ CSV כדי להתחיל</p>
+        <button class="btn btn-secondary" id="btnUploadEmpty"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> העלאת קובץ CSV</button>
+      </div>
+      <div class="empty" id="emptyFilter" style="display:none"><div class="empty-icon">🔍</div><h3>אין שורות תואמות לסינון</h3><p>שנה את הסינון כדי לראות נתונים</p></div>
+      <table id="dataTable" style="display:none"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+    </div>
+    <div class="pagination" id="pagination" style="display:none"></div>
+  </div>
+</div>
+
+<footer class="footer">
+  <span id="footerSave">טרם נשמר</span>
+  <span id="footerCount">0 רשומות בזיכרון</span>
+  <span>HITL Dashboard v3.0 · Migdal DATA &amp; AI</span>
+</footer>
+<div class="toast-host" id="toastHost"></div>
+<div class="spinner-overlay" id="spinner"><div class="spinner"></div><span>מעבד נתונים...</span></div>
+<div class="modal-bg" id="modalBg"><div class="modal"><h3 id="modalTitle">שגיאה</h3><p id="modalBody"></p><div class="modal-actions"><button class="btn btn-secondary" id="modalClose">סגור</button></div></div></div>
+<div class="confirm-bg" id="confirmBg" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle"><div class="confirm"><h3 id="confirmTitle">אישור פעולה</h3><p id="confirmBody"></p><div class="confirm-actions"><button class="btn btn-danger" id="confirmYes">אישור</button><button class="btn btn-ghost" style="background:var(--mig-mist);color:var(--mig-ink)" id="confirmNo">ביטול</button></div></div></div>
+<div class="drop-overlay" id="dropOverlay"><div class="drop-box"><div class="drop-ico">📂</div>שחרר קובץ CSV כאן</div></div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════
+// CONSTANTS & ICONS
+// ═══════════════════════════════════════════════════
+const STORAGE_KEY   = 'hitl_dashboard_v1';
+const ROWS_PER_PAGE = 50;
+const AUTOSAVE_MS   = 500;
+const WARN_BYTES    = 4.5 * 1024 * 1024;
+
+const EXPECTED_HEADERS = [
+  '(אל תשנה) הודעת דואר אלקטרוני','מייל נוצר',
+  "מס' פניה ‏(לגבי) ‏(פניית שירות)",'שם הפניה',
+  'ת"ז של לקוח','מוען','נמען',
+  'תשובת ממשק AI','תבנית מייל יוצא','סטטוס טיפול',
+  'סוג הדוח הופק','סיבת המצב','סוג שגיאה',
+];
+
+const EVAL_COLS = [
+  {idx:7,key:'H',label:'תשובת ממשק AI'},
+  {idx:8,key:'I',label:'תבנית מייל יוצא'},
+  {idx:9,key:'J',label:'סטטוס טיפול'},
+  {idx:10,key:'K',label:'סוג הדוח הופק'},
+  {idx:11,key:'L',label:'סיבת המצב'},
+  {idx:12,key:'M',label:'סוג שגיאה'},
+];
+const EVAL_COUNT = EVAL_COLS.length;
+
+// Inline SVG icons
+const IC_COPY  = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+const IC_CHECK_SM = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const IC_CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const IC_X     = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6 18 18"/></svg>';
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let state = { rows:[], savedAt:null };
+let filter = { from:null, to:null, quick:'all', status:'all' };
+let currentPage=1, filteredIdxs=[], dateFilteredIdxs=[];
+let statusCounts = { all:0, done:0, partial:0, pending:0 };
+let selectedRows = new Set();
+let autosaveTimer = null;
+
+// ═══════════════════════════════════════════════════
+// ROBUST CSV PARSER (async, Windows-safe)
+// ═══════════════════════════════════════════════════
+async function parseCSVFile(file) {
+  function readAs(f, encoding) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsText(f, encoding);
+    });
+  }
+  function normalise(raw) {
+    return raw.replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  }
+  function detectDelimiter(headerLine) {
+    const commas = (headerLine.match(/,/g)||[]).length;
+    const semis  = (headerLine.match(/;/g)||[]).length;
+    return semis > commas ? ';' : ',';
+  }
+  function splitLine(line, sep) {
+    const result=[]; let cur='', inQ=false;
+    for (let i=0; i<line.length; i++) {
+      const ch=line[i];
+      if (ch==='"') { if (inQ && line[i+1]==='"') { cur+='"'; i++; } else inQ=!inQ; }
+      else if (ch===sep && !inQ) { result.push(cur.trim()); cur=''; }
+      else cur+=ch;
+    }
+    result.push(cur.trim());
+    return result;
+  }
+  function parseText(text, delimiter) {
+    const lines = text.split('\n').filter(l=>l.trim()!=='');
+    if (lines.length < 2) throw new Error('הקובץ ריק או מכיל כותרת בלבד.');
+    const headers = splitLine(lines[0], delimiter);
+    if (headers.length < EXPECTED_HEADERS.length) {
+      const delimLabel = delimiter===';' ? 'נקודה-פסיק (;)' : 'פסיק (,)';
+      throw new Error(`פורמט הקובץ אינו תואם. זוהו ${headers.length} עמודות (צפוי: ${EXPECTED_HEADERS.length}).\nמפריד שזוהה: ${delimLabel}.\nאנא ודא שהקובץ יוצא מה-CRM ללא שינויים.`);
+    }
+    // Strip invisible Unicode control/direction characters before comparing
+    function normalizeHeader(h) {
+      return h
+        .replace(/[‎‏‪-‮⁦-⁩​﻿]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+    // Match: expected header must appear as a substring of the actual header
+    // (handles cases where Windows CRM prepends metadata to column names)
+    const checkH = headers.slice(0, EXPECTED_HEADERS.length);
+    const mismatches = checkH
+      .map((h, i) => ({
+        got:      normalizeHeader(h),
+        expected: normalizeHeader(EXPECTED_HEADERS[i]),
+        idx:      i
+      }))
+      .filter(x => !x.got.includes(x.expected) && !x.expected.includes(x.got));
+    if (mismatches.length > 0) {
+      const detail = mismatches.slice(0,3).map(x=>`עמודה ${x.idx+1}: קיבלתי "${x.got}", ציפיתי "${x.expected}"`).join('\n');
+      throw new Error(`שמות העמודות אינם תואמים:\n${detail}`);
+    }
+    return lines.slice(1).map(line => {
+      const vals = splitLine(line, delimiter);
+      const row = {};
+      EXPECTED_HEADERS.forEach((h,i) => { row[h] = vals[i] !== undefined ? vals[i] : ''; });
+      return row;
+    });
+  }
+
+  let rawText, usedEncoding='utf-8';
+  try { rawText = normalise(await readAs(file,'utf-8')); }
+  catch(e) { throw new Error('שגיאה בקריאת הקובץ. אנא נסה שנית.'); }
+  const headerLine = rawText.split('\n')[0]||'';
+  const delimiter = detectDelimiter(headerLine);
+  const windowsFile = delimiter === ';';
+
+  try {
+    return { rows: parseText(rawText, delimiter), delimiter, encoding:usedEncoding, windowsFile };
+  } catch(firstErr) {
+    try {
+      rawText = normalise(await readAs(file,'windows-1252'));
+      const d2 = detectDelimiter(rawText.split('\n')[0]||'');
+      return { rows: parseText(rawText, d2), delimiter:d2, encoding:'windows-1252', windowsFile: d2===';' };
+    } catch(_) { throw firstErr; }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// DATE UTILS
+// ═══════════════════════════════════════════════════
+function excelSerial(n) { return new Date((n-25569)*86400000); }
+function parseDate(val) {
+  if (val==null||val===''||val==='#N/A') return null;
+  const s=String(val).trim();
+  if (/^\d{5}(\.\d+)?$/.test(s)) { const n=parseFloat(s); if(n>40000&&n<65000) return excelSerial(n); }
+  const d=new Date(s); if(!isNaN(d)) return d;
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+  return null;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const p=n=>String(n).padStart(2,'0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;
+}
+function fmtDateTime(d) {
+  if (!d) return '—';
+  const p=n=>String(n).padStart(2,'0');
+  return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function startDay(d) { const r=new Date(d); r.setHours(0,0,0,0); return r; }
+function endDay(d)   { const r=new Date(d); r.setHours(23,59,59,999); return r; }
+function toInputDate(d) { if(!d) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function quickRange(q) {
+  const now=new Date(), today=startDay(now);
+  switch(q) {
+    case 'today':     return {from:today,to:endDay(now)};
+    case 'yesterday': { const y=new Date(today); y.setDate(y.getDate()-1); return {from:y,to:endDay(y)}; }
+    case 'thisweek':  { const s=new Date(today); s.setDate(s.getDate()-now.getDay()); return {from:s,to:endDay(now)}; }
+    case 'lastweek':  { const ts=new Date(today); ts.setDate(ts.getDate()-now.getDay()); const ps=new Date(ts); ps.setDate(ps.getDate()-7); const pe=new Date(ts); pe.setDate(pe.getDate()-1); return {from:ps,to:endDay(pe)}; }
+    case 'thismonth': return {from:new Date(now.getFullYear(),now.getMonth(),1),to:endDay(now)};
+    default: return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// DISPLAY FORMATTERS
+// ═══════════════════════════════════════════════════
+function fmtRequestName(raw) {
+  if (!raw) return '—';
+  const t=raw.trim();
+  const prefix='פניה בנושא:';
+  return t.startsWith(prefix) ? t.slice(prefix.length).trim() : t;
+}
+
+// ═══════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════
+function saveState() {
+  try {
+    state.savedAt = new Date().toISOString();
+    const json = JSON.stringify(state);
+    if (new Blob([json]).size > WARN_BYTES) showToast('warning','⚠️','הנתונים מתקרבים לגבול האחסון. מומלץ לייצא.');
+    localStorage.setItem(STORAGE_KEY, json);
+    updateFooter(); return true;
+  } catch(e) {
+    if (e.name==='QuotaExceededError') showToast('error','❌','הזיכרון המקומי מלא. יש לייצא ולנקות.');
+    return false;
+  }
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d && Array.isArray(d.rows)) state = d;
+    state.rows.forEach(row => {
+      EVAL_COLS.forEach(c => { if (!(c.idx in row.evals)) row.evals[c.idx]=null; });
+      if (row.notes === undefined) row.notes = '';
+    });
+  } catch(e) { console.error('load failed',e); }
+}
+function scheduleAutosave() { clearTimeout(autosaveTimer); autosaveTimer = setTimeout(saveState, AUTOSAVE_MS); }
+
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+function rowDoneCount(row) { return EVAL_COLS.filter(c=>row.evals[c.idx]!=null).length; }
+function rowDotCls(row) { const d=rowDoneCount(row); return d===EVAL_COUNT?'all':d>0?'part':'none'; }
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function trunc(s,n) { return s.length>n?s.slice(0,n)+'…':s; }
+function pad2(n) { return String(n).padStart(2,'0'); }
+function setSpinner(on) { document.getElementById('spinner').classList.toggle('active',on); }
+
+// ═══════════════════════════════════════════════════
+// FILTER
+// ═══════════════════════════════════════════════════
+function applyFilter() {
+  let range=null;
+  if (filter.quick!=='all'&&filter.quick!=='custom') range=quickRange(filter.quick);
+  else if (filter.quick==='custom'&&(filter.from||filter.to)) range={from:filter.from,to:filter.to};
+
+  dateFilteredIdxs = state.rows.reduce((acc,row,i) => {
+    if (!range) { acc.push(i); return acc; }
+    const d=parseDate(row.cells[1]); if(!d) return acc;
+    if(range.from&&d<range.from) return acc;
+    if(range.to&&d>range.to) return acc;
+    acc.push(i); return acc;
+  }, []);
+
+  statusCounts = {all:dateFilteredIdxs.length, done:0, partial:0, pending:0};
+  dateFilteredIdxs.forEach(i => {
+    const d=rowDoneCount(state.rows[i]);
+    if(d===EVAL_COUNT) statusCounts.done++; else if(d>0) statusCounts.partial++; else statusCounts.pending++;
+  });
+
+  filteredIdxs = filter.status==='all' ? [...dateFilteredIdxs] : dateFilteredIdxs.filter(i => {
+    const d=rowDoneCount(state.rows[i]);
+    if(filter.status==='done') return d===EVAL_COUNT;
+    if(filter.status==='partial') return d>0&&d<EVAL_COUNT;
+    if(filter.status==='pending') return d===0;
+    return true;
+  });
+
+  currentPage=1;
+  const label={all:'',done:' (הושלמו)',partial:' (בטיפול)',pending:' (ממתינים)'};
+  document.getElementById('filterCount').textContent=`מציג ${filteredIdxs.length.toLocaleString()} מתוך ${state.rows.length.toLocaleString()} שורות${label[filter.status]||''}`;
+  renderStatusFilters(); renderKPIs(); renderTable();
+}
+
+function renderStatusFilters() {
+  const el=document.getElementById('statusFilterRow');
+  const defs=[
+    {key:'all',label:'הכל',cls:'sf-all',icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>',count:statusCounts.all},
+    {key:'done',label:'הושלמו',cls:'sf-done',icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>',count:statusCounts.done},
+    {key:'partial',label:'בטיפול',cls:'sf-partial',icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',count:statusCounts.partial},
+    {key:'pending',label:'ממתינים',cls:'sf-pending',icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>',count:statusCounts.pending},
+  ];
+  el.innerHTML='<span class="status-row-label">סטטוס בדיקה:</span>'+defs.map(d=>`<button class="sfbtn ${d.cls}${filter.status===d.key?' active':''}" data-sf="${d.key}">${d.icon} ${d.label} <span class="sf-badge">${d.count.toLocaleString()}</span></button>`).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// KPI
+// ═══════════════════════════════════════════════════
+function computeKPIs() {
+  const rows=filteredIdxs.map(i=>state.rows[i]); const total=rows.length;
+  let totalEval=0, totalAllEvals=0, totalGood=0;
+  const cols=EVAL_COLS.map(c=>({col:c,ev:0,good:0,bad:0}));
+  rows.forEach(row => {
+    let re=false;
+    cols.forEach(cs => {
+      const v=row.evals[cs.col.idx];
+      if(v==='good'){cs.ev++;cs.good++;re=true;totalAllEvals++;totalGood++;}
+      else if(v==='bad'){cs.ev++;cs.bad++;re=true;totalAllEvals++;}
+    });
+    if(re) totalEval++;
+  });
+  return {total,totalEval,cols,totalAllEvals,totalGood};
+}
+
+function renderKPIs() {
+  const {total,totalEval,cols,totalAllEvals,totalGood}=computeKPIs();
+  const el=document.getElementById('kpiRow');
+  const evalPct=total>0?Math.round(totalEval/total*100):0;
+  const sPct=totalAllEvals>0?(totalGood/totalAllEvals*100):0;
+  const sD=totalAllEvals>0?sPct.toFixed(1)+'%':'—';
+  const pW=totalAllEvals>0?Math.round(sPct):0;
+  let html=`
+    <div class="kpi-card kpi-success-rate"><div class="kpi-title">שיעור הצלחה כולל</div><div class="kpi-value">${sD}</div><div class="kpi-sub">${totalGood.toLocaleString()} תקין מתוך ${totalAllEvals.toLocaleString()} בדיקות</div><div class="kpi-progress"><div class="kpi-progress-bar" style="width:${pW}%"></div></div></div>
+    <div class="kpi-card kpi-total-rows"><div class="kpi-title">סה"כ שורות</div><div class="kpi-value">${total.toLocaleString()}</div><div class="kpi-sub">בטווח הנבחר</div></div>
+    <div class="kpi-card"><div class="kpi-title">נבדקו</div><div class="kpi-value">${totalEval.toLocaleString()}</div><div class="kpi-sub">${evalPct}% מהשורות</div></div>`;
+  const accs=['#3d65e3','#0891b2','#7c3aed','#ea580c','#3f8568','#b65058'];
+  cols.forEach((cs,i)=>{
+    const pend=total-cs.ev; const gP=cs.ev>0?Math.round(cs.good/cs.ev*100):0; const bP=cs.ev>0?Math.round(cs.bad/cs.ev*100):0;
+    html+=`<div class="kpi-card" style="border-top:3px solid ${accs[i]}"><div class="kpi-title" title="${escH(cs.col.label)}">${escH(cs.col.label)}</div><div class="kpi-value">${cs.ev.toLocaleString()}</div><div class="kpi-sub">מתוך ${total} שורות</div><div class="kpi-stats"><span class="kpi-stat good">✅ ${cs.good} (${gP}%)</span><span class="kpi-stat bad">❌ ${cs.bad} (${bP}%)</span>${pend>0?`<span class="kpi-stat pend">⏳ ${pend}</span>`:''}</div></div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════
+// TABLE RENDER
+// ═══════════════════════════════════════════════════
+function renderTable() {
+  const noData=document.getElementById('emptyNoData');
+  const noFilt=document.getElementById('emptyFilter');
+  const tbl=document.getElementById('dataTable');
+  const pag=document.getElementById('pagination');
+
+  if (state.rows.length===0) { noData.style.display='';noFilt.style.display='none';tbl.style.display='none';pag.style.display='none'; return; }
+  if (filteredIdxs.length===0) { noData.style.display='none';noFilt.style.display='';tbl.style.display='none';pag.style.display='none'; return; }
+  noData.style.display='none'; noFilt.style.display='none'; tbl.style.display='';
+
+  // Check if any row has notes (for header badge)
+  const anyNotes = filteredIdxs.some(i => state.rows[i].notes && state.rows[i].notes.trim());
+  const notesBadge = anyNotes ? ' <span style="color:var(--mig-blue);font-size:8px;vertical-align:super;">●</span>' : '';
+
+  // thead
+  const TH=['','#','','מזהה מייל','תאריך',"מס' פניה",'שם הפניה','ת"ז לקוח','מוען','נמען',
+    'תשובת ממשק AI','תבנית מייל יוצא','סטטוס טיפול','סוג הדוח הופק','סיבת המצב','סוג שגיאה','הערות'+notesBadge];
+  const allIn=filteredIdxs.length>0&&filteredIdxs.every(i=>selectedRows.has(state.rows[i].id));
+  const someIn=filteredIdxs.some(i=>selectedRows.has(state.rows[i].id));
+  const indet=someIn&&!allIn;
+  const thCols=TH.map((h,i)=>i===0
+    ?`<th class="th-cb"><input type="checkbox" class="all-cb" id="allCb" aria-label="בחר הכל" ${allIn?'checked':''} ${indet?'data-indeterminate="true"':''}></th>`
+    :`<th>${h}</th>`).join('');
+  document.getElementById('tableHead').innerHTML=`<tr>${thCols}</tr>`;
+  if(indet){const cb=document.getElementById('allCb');if(cb)cb.indeterminate=true;}
+
+  // paginate
+  const totalPages=Math.ceil(filteredIdxs.length/ROWS_PER_PAGE);
+  if(currentPage>totalPages) currentPage=totalPages;
+  const start=(currentPage-1)*ROWS_PER_PAGE;
+  const slice=filteredIdxs.slice(start,start+ROWS_PER_PAGE);
+
+  const parts=slice.map((rowIdx,j)=>{
+    const row=state.rows[rowIdx]; const rowNum=start+j+1;
+    const selected=selectedRows.has(row.id);
+    const dotCls=rowDotCls(row);
+    const dotTip=dotCls==='all'?'הוערך במלואו':dotCls==='part'?'הוערך חלקית':'טרם הוערך';
+    const uuid=row.cells[0]||'—';
+    const uuidShort=uuid.length>8?uuid.slice(0,8)+'…':uuid;
+    const requestDisplay=escH(trunc(fmtRequestName(row.cells[3]),28));
+    const requestFull=escH(row.cells[3]||'');
+
+    let tds=`
+      <td class="cb-cell"><input type="checkbox" class="row-cb" data-id="${escH(row.id)}" ${selected?'checked':''} aria-label="בחר שורה" aria-checked="${selected}"></td>
+      <td class="n">${rowNum}</td>
+      <td class="dot-cell"><span class="status-dot ${dotCls}" title="${dotTip}"></span></td>
+      <td class="uuid-cell"><div class="uuid-inner"><span class="uuid-text" title="${escH(uuid)}">${escH(uuidShort)}</span><button class="copy-btn" data-id="${escH(uuid)}" aria-label="העתק מזהה" title="העתק">${IC_COPY}</button></div></td>
+      <td class="date-cell">${fmtDate(parseDate(row.cells[1]))}</td>
+      <td>${escH(row.cells[2]||'—')}</td>
+      <td class="wrap-cell" title="${requestFull}">${requestDisplay}</td>
+      <td>${escH(row.cells[4]||'—')}</td>
+      <td class="wrap-cell" title="${escH(row.cells[5]||'')}">${escH(trunc(row.cells[5]||'—',22))}</td>
+      <td class="wrap-cell" title="${escH(row.cells[6]||'')}">${escH(trunc(row.cells[6]||'—',22))}</td>`;
+
+    EVAL_COLS.forEach(col=>{
+      const raw=row.cells[col.idx];
+      const empty=!raw||raw.trim()===''||raw.trim()==='#N/A';
+      const display=empty?'—':escH(raw);
+      const ev=row.evals[col.idx];
+      tds+=`<td class="eval-cell"><div class="eval-wrap"><div class="eval-val${empty?' na':''}" title="${empty?'':escH(raw)}">${display}</div><div class="eval-btns"><button class="ebtn-icon${ev==='good'?' sel-good':''}" data-ri="${rowIdx}" data-ci="${col.idx}" data-v="good" title="תקין">${IC_CHECK}</button><button class="ebtn-icon${ev==='bad'?' sel-bad':''}" data-ri="${rowIdx}" data-ci="${col.idx}" data-v="bad" title="שגוי">${IC_X}</button></div></div></td>`;
+    });
+
+    // Notes column
+    const noteVal=escH(row.notes||'');
+    tds+=`<td class="notes-cell"><textarea class="notes-ta" data-id="${escH(row.id)}" rows="2" placeholder="הוסף הערה...">${noteVal}</textarea></td>`;
+
+    return `<tr data-ri="${rowIdx}"${selected?' class="row-selected"':''}>${tds}</tr>`;
+  });
+
+  document.getElementById('tableBody').innerHTML=parts.join('');
+
+  if(totalPages<=1) pag.style.display='none';
+  else { pag.style.display=''; renderPager(totalPages); }
+}
+
+function renderPager(total) {
+  const el=document.getElementById('pagination');
+  const pages=buildPageList(currentPage,total);
+  const btns=pages.map(p=>p==='…'?`<span class="pager-sep">…</span>`:`<button class="pager${p===currentPage?' active':''}" data-page="${p}">${p}</button>`);
+  el.innerHTML=`<button class="pager" id="pagePrev" ${currentPage===1?'disabled':''}>→ הקודם</button>`+btns.join('')+`<button class="pager" id="pageNext" ${currentPage===total?'disabled':''}>הבא ←</button><span class="pager-info">עמוד ${currentPage} מתוך ${total} · ${filteredIdxs.length.toLocaleString()} שורות</span>`;
+}
+function buildPageList(cur,total) {
+  if(total<=9) return Array.from({length:total},(_,i)=>i+1);
+  const pages=new Set([1,total,cur]);
+  for(let d=-2;d<=2;d++){const p=cur+d;if(p>1&&p<total)pages.add(p);}
+  const sorted=[...pages].sort((a,b)=>a-b); const result=[]; let prev=0;
+  for(const p of sorted){if(p-prev>1)result.push('…');result.push(p);prev=p;}
+  return result;
+}
+
+// ═══════════════════════════════════════════════════
+// SELECTION
+// ═══════════════════════════════════════════════════
+function toggleRowSelection(id){if(selectedRows.has(id))selectedRows.delete(id);else selectedRows.add(id);updateBulkBar();}
+function selectAll(){filteredIdxs.forEach(i=>selectedRows.add(state.rows[i].id));updateBulkBar();renderTable();}
+function deselectAll(){selectedRows.clear();updateBulkBar();renderTable();}
+function updateBulkBar(){
+  const bar=document.getElementById('bulkBar'); const n=selectedRows.size;
+  if(n===0){bar.classList.add('hidden');return;}
+  bar.classList.remove('hidden');
+  document.getElementById('bulkCount').textContent=`נבחרו ${n.toLocaleString()} שורות`;
+}
+
+// ═══════════════════════════════════════════════════
+// BULK ACTIONS
+// ═══════════════════════════════════════════════════
+function bulkMark(val){
+  const ids=[...selectedRows]; let count=0;
+  state.rows.forEach(row=>{if(ids.includes(row.id)){EVAL_COLS.forEach(c=>{row.evals[c.idx]=val;});count++;}});
+  showToast('success','✅',`${count.toLocaleString()} שורות סומנו כ${val==='good'?'תקין':'שגוי'}.`);
+  scheduleAutosave(); applyFilter();
+}
+function bulkReset(){
+  const ids=[...selectedRows]; let count=0;
+  state.rows.forEach(row=>{if(ids.includes(row.id)){EVAL_COLS.forEach(c=>{row.evals[c.idx]=null;});count++;}});
+  showToast('info','↺',`${count.toLocaleString()} שורות אופסו.`);
+  scheduleAutosave(); applyFilter();
+}
+function bulkDelete(){
+  const n=selectedRows.size;
+  showConfirm('מחיקת שורות',`האם למחוק ${n.toLocaleString()} שורות? פעולה זו אינה ניתנת לביטול.`,()=>{
+    state.rows=state.rows.filter(row=>!selectedRows.has(row.id));
+    selectedRows.clear();
+    showToast('info','🗑',`${n.toLocaleString()} שורות נמחקו.`);
+    saveState();applyFilter();updateFooter();
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// UPLOAD (async — uses new parser)
+// ═══════════════════════════════════════════════════
+function openFilePicker(){document.getElementById('csvInput').click();}
+
+async function handleFile(file){
+  if(!file) return;
+  if(!file.name.toLowerCase().endsWith('.csv')){showToast('error','❌','נא להעלות קובץ CSV בלבד.');return;}
+  setSpinner(true);
+  try {
+    const result = await parseCSVFile(file);
+    processRows(result.rows);
+    if (result.windowsFile) showToast('info','ℹ️','זוהה קובץ Windows — המרה אוטומטית בוצעה בהצלחה ✓');
+  } catch(err) {
+    console.error(err);
+    showModal('פורמט קובץ שגוי', err.message);
+  } finally { setSpinner(false); }
+}
+
+function processRows(parsedRows) {
+  const existingIds=new Set(state.rows.map(r=>r.id));
+  let added=0, skipped=0;
+  for (const rowObj of parsedRows) {
+    const cells = EXPECTED_HEADERS.map(h => {
+      const val = rowObj[h]||'';
+      const s = val.trim();
+      return (s==='#N/A'||s===''||(s.startsWith('=')&&s.includes('VLOOKUP'))) ? '' : val;
+    });
+    const id=cells[0].trim();
+    if(!id) continue;
+    if(existingIds.has(id)){skipped++;continue;}
+    existingIds.add(id);
+    const evals={};
+    EVAL_COLS.forEach(c=>{evals[c.idx]=null;});
+    state.rows.push({id,cells,evals,notes:''});
+    added++;
+  }
+  if(added===0&&skipped===0){showToast('warning','⚠️','לא נמצאו שורות תקינות בקובץ.');return;}
+  showToast('success','✅',`נוספו ${added.toLocaleString()} שורות חדשות. ${skipped.toLocaleString()} שורות כפולות דולגו.`);
+  saveState();applyFilter();updateFooter();
+}
+
+// ═══════════════════════════════════════════════════
+// EXPORT (XLSX with color-coded evaluations)
+// ═══════════════════════════════════════════════════
+async function exportData() {
+  if (state.rows.length === 0) {
+    showToast('warning', '⚠️', 'אין נתונים לייצוא.');
+    return;
+  }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'HITL Dashboard';
+  wb.created = new Date();
+
+  const ws = wb.addWorksheet('בדיקות HITL', {
+    views: [{ rightToLeft: true }]
+  });
+
+  // ─── HEADERS ───
+  const headers = [...EXPECTED_HEADERS, 'הערות'];
+  const headerRow = ws.addRow(headers);
+
+  headerRow.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF020140' } };
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11, name: 'Arial' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true, readingOrder: 'rightToLeft' };
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FFD4DDEC' } } };
+  });
+  headerRow.height = 30;
+
+  ws.columns = [
+    { width: 16 }, { width: 14 }, { width: 14 }, { width: 30 }, { width: 12 },
+    { width: 14 }, { width: 18 }, { width: 18 }, { width: 22 }, { width: 18 },
+    { width: 20 }, { width: 18 }, { width: 22 }, { width: 25 },
+  ];
+
+  // ─── Define fill styles ───
+  const goodFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } };
+  const badFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } };
+  const goodFont = { color: { argb: 'FF155724' }, size: 10, name: 'Arial' };
+  const badFont  = { color: { argb: 'FF721C24' }, size: 10, name: 'Arial' };
+  const defaultFont = { size: 10, name: 'Arial' };
+  const defaultAlignment = { vertical: 'middle', wrapText: true, readingOrder: 'rightToLeft' };
+
+  // ─── DATA ROWS ───
+  state.rows.forEach(row => {
+    const cellValues = [...row.cells, row.notes || ''];
+    const dataRow = ws.addRow(cellValues);
+
+    dataRow.eachCell((cell) => {
+      cell.font = { ...defaultFont };
+      cell.alignment = { ...defaultAlignment };
+    });
+
+    EVAL_COLS.forEach(col => {
+      const excelColIdx = col.idx + 1;
+      const cell = dataRow.getCell(excelColIdx);
+      const evalValue = row.evals[col.idx];
+
+      if (evalValue === 'good') {
+        cell.fill = goodFill;
+        cell.font = goodFont;
+      } else if (evalValue === 'bad') {
+        cell.fill = badFill;
+        cell.font = badFont;
+      }
+    });
+  });
+
+  // ─── KPI SUMMARY BLOCK ───
+  ws.addRow([]);
+
+  const allRows = state.rows;
+  const totalRows = allRows.length;
+
+  const kpiData = EVAL_COLS.map(col => {
+    let good = 0, bad = 0, evaluated = 0;
+    allRows.forEach(row => {
+      const v = row.evals[col.idx];
+      if (v === 'good') { good++; evaluated++; }
+      else if (v === 'bad') { bad++; evaluated++; }
+    });
+    const pct = evaluated > 0 ? ((good / evaluated) * 100).toFixed(1) + '%' : '—';
+    return { good, bad, evaluated, pct };
+  });
+
+  const totalAllEvals = kpiData.reduce((s, k) => s + k.evaluated, 0);
+  const totalGood = kpiData.reduce((s, k) => s + k.good, 0);
+  const overallPct = totalAllEvals > 0 ? ((totalGood / totalAllEvals) * 100).toFixed(1) + '%' : '—';
+
+  const kpiHeaderRow = ws.addRow([
+    'סיכום KPI', '', '', '', '', '', '',
+    ...EVAL_COLS.map(c => c.label), ''
+  ]);
+  kpiHeaderRow.eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF020140' } };
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Arial' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', readingOrder: 'rightToLeft' };
+  });
+
+  const pctRow = ws.addRow([
+    'שיעור הצלחה', '', '', '', '', '', '',
+    ...kpiData.map(k => k.pct), ''
+  ]);
+  pctRow.getCell(1).font = { bold: true, size: 10, name: 'Arial' };
+  EVAL_COLS.forEach((col) => {
+    const cell = pctRow.getCell(col.idx + 1);
+    cell.font = { bold: true, size: 11, name: 'Arial', color: { argb: 'FF155724' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+
+  const goodRow = ws.addRow([
+    'תקין', '', '', '', '', '', '',
+    ...kpiData.map(k => k.good), ''
+  ]);
+  goodRow.getCell(1).font = { bold: true, size: 10, name: 'Arial' };
+  EVAL_COLS.forEach(col => {
+    const cell = goodRow.getCell(col.idx + 1);
+    cell.fill = goodFill;
+    cell.font = { ...goodFont, bold: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+
+  const badRow = ws.addRow([
+    'שגוי', '', '', '', '', '', '',
+    ...kpiData.map(k => k.bad), ''
+  ]);
+  badRow.getCell(1).font = { bold: true, size: 10, name: 'Arial' };
+  EVAL_COLS.forEach(col => {
+    const cell = badRow.getCell(col.idx + 1);
+    cell.fill = badFill;
+    cell.font = { ...badFont, bold: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+
+  const evalRow = ws.addRow([
+    'סה"כ נבדקו', '', '', '', '', '', '',
+    ...kpiData.map(k => `${k.evaluated} / ${totalRows}`), ''
+  ]);
+  evalRow.getCell(1).font = { bold: true, size: 10, name: 'Arial' };
+
+  const overallRow = ws.addRow([
+    `שיעור הצלחה כולל: ${overallPct}`, '', '', '', '', '', '',
+    '', '', '', '', '', '', ''
+  ]);
+  overallRow.getCell(1).font = { bold: true, size: 12, name: 'Arial', color: { argb: 'FF020140' } };
+  ws.mergeCells(overallRow.number, 1, overallRow.number, 7);
+
+  // ─── Auto-filter on header row ───
+  ws.autoFilter = {
+    from: { row: 1, column: 1 },
+    to:   { row: 1, column: headers.length }
+  };
+
+  // ─── Freeze top row ───
+  ws.views = [{ state: 'frozen', ySplit: 1, rightToLeft: true }];
+
+  // ─── Generate and download ───
+  const now = new Date();
+  const ts = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(now.getMinutes())}`;
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hitl_export_${ts}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('success', '✅', `יוצאו ${state.rows.length.toLocaleString()} שורות לקובץ Excel.`);
+}
+
+// ═══════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════
+function updateFooter(){
+  const saved=state.savedAt?fmtDateTime(new Date(state.savedAt)):null;
+  document.getElementById('footerSave').textContent=saved?`נשמר: ${saved}`:'טרם נשמר';
+  document.getElementById('footerCount').textContent=`${state.rows.length.toLocaleString()} רשומות בזיכרון`;
+}
+function showToast(type,icon,msg,ms=3500){
+  const host=document.getElementById('toastHost');
+  const el=document.createElement('div');el.className=`toast ${type}`;
+  el.innerHTML=`<span class="toast-ico">${icon}</span><span class="toast-msg">${msg}</span>`;
+  host.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),320);},ms);
+}
+function showModal(title,body){
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').textContent=body;
+  document.getElementById('modalBg').classList.add('open');
+}
+let confirmCallback=null;
+function showConfirm(title,body,onConfirm){
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmBody').textContent=body;
+  confirmCallback=onConfirm;
+  document.getElementById('confirmBg').classList.add('open');
+  document.getElementById('confirmYes').focus();
+}
+
+// ═══════════════════════════════════════════════════
+// COPY TO CLIPBOARD
+// ═══════════════════════════════════════════════════
+async function handleCopyId(btn){
+  const id=btn.dataset.id;
+  try {
+    await navigator.clipboard.writeText(id);
+    btn.innerHTML=IC_CHECK_SM;
+    btn.classList.add('copied');
+    setTimeout(()=>{btn.innerHTML=IC_COPY;btn.classList.remove('copied');},1500);
+  } catch(e) {
+    showToast('warning','⚠️','לא ניתן להעתיק — אנא סמן ידנית');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════
+function initEvents(){
+  // Upload
+  document.getElementById('btnUpload').addEventListener('click',openFilePicker);
+  document.getElementById('btnUploadEmpty').addEventListener('click',openFilePicker);
+  document.getElementById('csvInput').addEventListener('change',e=>{if(e.target.files[0]){handleFile(e.target.files[0]);e.target.value='';}});
+
+  // Save / Export
+  document.getElementById('btnSave').addEventListener('click',()=>{if(saveState())showToast('success','✅','הנתונים נשמרו בהצלחה.');});
+  document.getElementById('btnExport').addEventListener('click',exportData);
+
+  // Date inputs
+  document.getElementById('dateFrom').addEventListener('change',e=>{filter.from=e.target.value?startDay(new Date(e.target.value)):null;filter.quick='custom';document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('active'));applyFilter();});
+  document.getElementById('dateTo').addEventListener('change',e=>{filter.to=e.target.value?endDay(new Date(e.target.value)):null;filter.quick='custom';document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('active'));applyFilter();});
+
+  // Quick date buttons
+  document.querySelectorAll('.qbtn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const q=btn.dataset.q;filter.quick=q;
+      document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      if(q==='all'){filter.from=filter.to=null;document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';}
+      else{const r=quickRange(q);if(r){filter.from=r.from;filter.to=r.to;document.getElementById('dateFrom').value=toInputDate(r.from);document.getElementById('dateTo').value=toInputDate(r.to);}}
+      applyFilter();
+    });
+  });
+
+  // Status filter
+  document.getElementById('statusFilterRow').addEventListener('click',e=>{const btn=e.target.closest('.sfbtn');if(!btn)return;filter.status=btn.dataset.sf;applyFilter();});
+
+  // Table body — delegated click
+  document.getElementById('tableBody').addEventListener('click',async e=>{
+    // Checkbox
+    const cb=e.target.closest('.row-cb');
+    if(cb){toggleRowSelection(cb.dataset.id);renderTable();return;}
+
+    // Copy button
+    const copyBtn=e.target.closest('.copy-btn');
+    if(copyBtn){handleCopyId(copyBtn);return;}
+
+    // Eval button
+    const btn=e.target.closest('.ebtn-icon');
+    if(!btn) return;
+    const ri=+btn.dataset.ri, ci=+btn.dataset.ci, v=btn.dataset.v;
+    const row=state.rows[ri]; if(!row) return;
+    row.evals[ci]=row.evals[ci]===v?null:v;
+
+    // in-place update
+    const btnsEl=btn.closest('.eval-btns');
+    btnsEl.querySelectorAll('.ebtn-icon').forEach(b=>b.classList.remove('sel-good','sel-bad'));
+    const cur=row.evals[ci];
+    if(cur==='good') btnsEl.querySelector('[data-v="good"]').classList.add('sel-good');
+    if(cur==='bad')  btnsEl.querySelector('[data-v="bad"]').classList.add('sel-bad');
+    const tr=btn.closest('tr');
+    if(tr){const dot=tr.querySelector('.status-dot');if(dot)dot.className=`status-dot ${rowDotCls(row)}`;}
+    renderKPIs();renderStatusFilters();scheduleAutosave();
+  });
+
+  // Notes — save on focusout (bubbles, unlike blur)
+  document.getElementById('tableBody').addEventListener('focusout',e=>{
+    const ta=e.target.closest('.notes-ta');
+    if(!ta) return;
+    const id=ta.dataset.id;
+    const row=state.rows.find(r=>r.id===id);
+    if(row && row.notes!==ta.value){row.notes=ta.value;scheduleAutosave();}
+  });
+
+  // Select-all
+  document.getElementById('tableHead').addEventListener('change',e=>{if(!e.target.classList.contains('all-cb'))return;if(e.target.checked)selectAll();else deselectAll();});
+
+  // Pagination
+  document.getElementById('pagination').addEventListener('click',e=>{
+    const btn=e.target.closest('.pager');if(!btn||btn.disabled)return;
+    const total=Math.ceil(filteredIdxs.length/ROWS_PER_PAGE);
+    if(btn.id==='pagePrev')currentPage=Math.max(1,currentPage-1);
+    else if(btn.id==='pageNext')currentPage=Math.min(total,currentPage+1);
+    else if(btn.dataset.page)currentPage=+btn.dataset.page;
+    renderTable();document.getElementById('tableScroll').scrollTop=0;
+  });
+
+  // Bulk buttons
+  document.getElementById('bbGood').addEventListener('click',()=>bulkMark('good'));
+  document.getElementById('bbBad').addEventListener('click',()=>bulkMark('bad'));
+  document.getElementById('bbReset').addEventListener('click',bulkReset);
+  document.getElementById('bbDelete').addEventListener('click',bulkDelete);
+  document.getElementById('bbDesel').addEventListener('click',deselectAll);
+
+  // Modals
+  document.getElementById('modalClose').addEventListener('click',()=>document.getElementById('modalBg').classList.remove('open'));
+  document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('modalBg').classList.remove('open');});
+  document.getElementById('confirmYes').addEventListener('click',()=>{document.getElementById('confirmBg').classList.remove('open');if(confirmCallback){confirmCallback();confirmCallback=null;}});
+  document.getElementById('confirmNo').addEventListener('click',()=>{document.getElementById('confirmBg').classList.remove('open');confirmCallback=null;});
+  document.getElementById('confirmBg').addEventListener('click',e=>{if(e.target===e.currentTarget){document.getElementById('confirmBg').classList.remove('open');confirmCallback=null;}});
+
+  // Drag & drop
+  let dlt;
+  document.addEventListener('dragover',e=>{e.preventDefault();clearTimeout(dlt);document.getElementById('dropOverlay').classList.add('active');});
+  document.addEventListener('dragleave',()=>{dlt=setTimeout(()=>document.getElementById('dropOverlay').classList.remove('active'),80);});
+  document.addEventListener('drop',e=>{e.preventDefault();document.getElementById('dropOverlay').classList.remove('active');const f=e.dataTransfer?.files?.[0];if(f)handleFile(f);});
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown',e=>{
+    const mod=e.ctrlKey||e.metaKey;
+    if(e.key==='Escape'){document.getElementById('modalBg').classList.remove('open');document.getElementById('confirmBg').classList.remove('open');deselectAll();return;}
+    if(mod&&e.key==='s'){e.preventDefault();if(saveState())showToast('success','✅','הנתונים נשמרו בהצלחה.');return;}
+    if(mod&&e.key==='a'&&document.activeElement?.closest?.('#tableScroll')){e.preventDefault();selectAll();return;}
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  loadState();initEvents();applyFilter();updateFooter();
+});
+</script>
+</body>
+</html>
