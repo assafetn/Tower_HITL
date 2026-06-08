@@ -398,22 +398,34 @@ async function parseCSVFile(file) {
     });
   }
 
-  let rawText, usedEncoding='utf-8';
-  try { rawText = normalise(await readAs(file,'utf-8')); }
-  catch(e) { throw new Error('שגיאה בקריאת הקובץ. אנא נסה שנית.'); }
-  const headerLine = rawText.split('\n')[0]||'';
-  const delimiter = detectDelimiter(headerLine);
-  const windowsFile = delimiter === ';';
+  // Detect valid Hebrew: Unicode block U+05D0–U+05EA
+  function hasHebrew(text) { return /[א-ת]/.test(text); }
+
+  // Try encodings in order — pick first that produces readable Hebrew text.
+  // CRM exports are often Windows-1255 (Hebrew Windows) which reads as garbage in UTF-8.
+  const ENCODINGS = ['utf-8', 'windows-1255', 'windows-1252', 'iso-8859-8'];
+  let rawText = null, usedEncoding = 'utf-8';
+
+  for (const enc of ENCODINGS) {
+    try {
+      const decoded = normalise(await readAs(file, enc));
+      if (hasHebrew(decoded)) { rawText = decoded; usedEncoding = enc; break; }
+    } catch(e) { /* try next */ }
+  }
+
+  // Last resort: UTF-8 even if no Hebrew detected
+  if (!rawText) {
+    try { rawText = normalise(await readAs(file, 'utf-8')); usedEncoding = 'utf-8'; }
+    catch(e) { throw new Error('שגיאה בקריאת הקובץ. אנא נסה שנית.'); }
+  }
+
+  const headerLine = rawText.split('\n')[0] || '';
+  const delimiter  = detectDelimiter(headerLine);
+  const windowsFile = delimiter === ';' || usedEncoding !== 'utf-8';
 
   try {
-    return { rows: parseText(rawText, delimiter), delimiter, encoding:usedEncoding, windowsFile };
-  } catch(firstErr) {
-    try {
-      rawText = normalise(await readAs(file,'windows-1252'));
-      const d2 = detectDelimiter(rawText.split('\n')[0]||'');
-      return { rows: parseText(rawText, d2), delimiter:d2, encoding:'windows-1252', windowsFile: d2===';' };
-    } catch(_) { throw firstErr; }
-  }
+    return { rows: parseText(rawText, delimiter), delimiter, encoding: usedEncoding, windowsFile };
+  } catch(err) { throw err; }
 }
 
 // ═══════════════════════════════════════════════════
