@@ -54,6 +54,15 @@ button{font-family:inherit;cursor:pointer} input,textarea{font-family:inherit}
 .btn-danger{background:var(--error);color:#fff} .btn-danger:hover{background:#9e3f46}
 .btn svg{flex-shrink:0}
 
+/* ═══ ENCODING SELECTOR ═══ */
+.enc-wrap{display:flex;align-items:center;gap:6px}
+.enc-select{padding:6px 10px;border:1px solid rgba(255,255,255,.3);border-radius:var(--r-sm);font-size:12px;font-family:inherit;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;direction:ltr;appearance:none;-webkit-appearance:none;padding-left:22px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,.6)'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:6px center}
+.enc-select:focus{outline:none;border-color:var(--mig-green);box-shadow:var(--sh-focus)}
+.enc-select option{background:var(--mig-ink);color:#fff}
+.enc-label{font-size:11px;color:rgba(255,255,255,.5);white-space:nowrap}
+.enc-badge{font-size:10px;padding:2px 8px;border-radius:var(--r-pill);background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);white-space:nowrap;display:none}
+.enc-badge.visible{display:inline-block}
+
 /* ═══ MAIN ═══ */
 .main{max-width:1920px;margin:0 auto;padding:16px 24px 32px}
 
@@ -231,6 +240,19 @@ td.notes-cell{min-width:140px;max-width:220px;overflow:visible;white-space:norma
       העלאת CSV
     </button>
     <input type="file" id="csvInput" accept=".csv">
+    <div class="enc-wrap">
+      <span class="enc-label">קידוד:</span>
+      <select class="enc-select" id="encSelect" title="קידוד קובץ — שנה אם הטקסט מוצג כ-??????">
+        <option value="auto">אוטומטי</option>
+        <option value="utf-8">UTF-8</option>
+        <option value="windows-1255">Windows-1255 (עברית)</option>
+        <option value="iso-8859-8-i">ISO-8859-8-I (עברית)</option>
+        <option value="iso-8859-8">ISO-8859-8</option>
+        <option value="windows-1252">Windows-1252</option>
+        <option value="utf-16le">UTF-16 LE</option>
+      </select>
+      <span class="enc-badge" id="encBadge"></span>
+    </div>
     <button class="btn btn-ghost" id="btnSave">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
       שמור
@@ -349,11 +371,12 @@ let currentPage=1, filteredIdxs=[], dateFilteredIdxs=[];
 let statusCounts = { all:0, done:0, partial:0, pending:0 };
 let selectedRows = new Set();
 let autosaveTimer = null;
+let lastUploadedFile = null;  // keep reference for re-parsing with different encoding
 
 // ═══════════════════════════════════════════════════
 // ROBUST CSV PARSER (async, Windows-safe)
 // ═══════════════════════════════════════════════════
-async function parseCSVFile(file) {
+async function parseCSVFile(file, forceEncoding) {
   // Read file as raw bytes (ArrayBuffer) — then decode with TextDecoder
   function readAsBuffer(f) {
     return new Promise((resolve, reject) => {
@@ -410,13 +433,20 @@ async function parseCSVFile(file) {
   try { bytes = await readAsBuffer(file); }
   catch(e) { throw new Error('שגיאה בקריאת הקובץ. אנא נסה שנית.'); }
 
-  // Check for UTF-8 BOM (EF BB BF) — if present, file is definitely UTF-8
+  // If user forced a specific encoding, use it directly
+  if (forceEncoding && forceEncoding !== 'auto') {
+    try {
+      const decoder = new TextDecoder(forceEncoding, { fatal: false });
+      const decoded = normalise(decoder.decode(bytes));
+      const headerLine = decoded.split('\n')[0] || '';
+      const delimiter  = detectDelimiter(headerLine);
+      return { rows: parseText(decoded, delimiter), delimiter, encoding: forceEncoding, windowsFile: forceEncoding !== 'utf-8' };
+    } catch(e) { throw new Error(`שגיאה בפענוח עם קידוד ${forceEncoding}. נסה קידוד אחר.`); }
+  }
+
+  // Auto-detect: check for BOM markers
   const hasBOM = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
-
-  // Check for UTF-16 LE BOM (FF FE)
   const hasUTF16LE = bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE;
-
-  // Check for UTF-16 BE BOM (FE FF)
   const hasUTF16BE = bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF;
 
   // Build encoding list — BOM-detected encoding goes first
@@ -439,7 +469,6 @@ async function parseCSVFile(file) {
         bestCount = hCount;
         bestEnc = enc;
       }
-      // If BOM was detected, trust it — don't try others
       if (hasBOM || hasUTF16LE || hasUTF16BE) break;
     } catch(e) { /* encoding not supported, skip */ }
   }
@@ -761,17 +790,29 @@ function bulkDelete(){
 // ═══════════════════════════════════════════════════
 function openFilePicker(){document.getElementById('csvInput').click();}
 
-async function handleFile(file){
+async function handleFile(file, forceEncoding){
   if(!file) return;
   if(!file.name.toLowerCase().endsWith('.csv')){showToast('error','❌','נא להעלות קובץ CSV בלבד.');return;}
+  lastUploadedFile = file;  // store for re-parsing
+  const encSelect = document.getElementById('encSelect');
+  const enc = forceEncoding || encSelect.value;
   setSpinner(true);
   try {
-    const result = await parseCSVFile(file);
+    const result = await parseCSVFile(file, enc);
     processRows(result.rows);
-    if (result.windowsFile) showToast('info','ℹ️','זוהה קובץ Windows — המרה אוטומטית בוצעה בהצלחה ✓');
+    // Show which encoding was used + update badge
+    const encBadge = document.getElementById('encBadge');
+    encBadge.textContent = result.encoding;
+    encBadge.classList.add('visible');
+    const encLabel = {
+      'utf-8':'UTF-8','windows-1255':'Windows-1255 (עברית)',
+      'iso-8859-8-i':'ISO-8859-8-I','iso-8859-8':'ISO-8859-8',
+      'windows-1252':'Windows-1252','utf-16le':'UTF-16 LE','utf-16be':'UTF-16 BE'
+    };
+    showToast('success','🔤',`קידוד שזוהה: ${encLabel[result.encoding]||result.encoding}. אם הטקסט לא תקין — שנה קידוד בתפריט ולחץ "העלאת CSV" שנית.`, 5000);
   } catch(err) {
     console.error(err);
-    showModal('פורמט קובץ שגוי', err.message);
+    showModal('פורמט קובץ שגוי', err.message + '\n\nנסה לשנות את הקידוד בתפריט ולהעלות שנית.');
   } finally { setSpinner(false); }
 }
 
@@ -1020,6 +1061,14 @@ function initEvents(){
   document.getElementById('btnUpload').addEventListener('click',openFilePicker);
   document.getElementById('btnUploadEmpty').addEventListener('click',openFilePicker);
   document.getElementById('csvInput').addEventListener('change',e=>{if(e.target.files[0]){handleFile(e.target.files[0]);e.target.value='';}});
+
+  // Encoding selector — re-parse last file when changed
+  document.getElementById('encSelect').addEventListener('change',async e=>{
+    if(!lastUploadedFile){showToast('warning','⚠️','העלה קובץ CSV קודם, ואז שנה קידוד.');return;}
+    // Clear existing rows and re-parse with new encoding
+    state.rows=[];
+    await handleFile(lastUploadedFile, e.target.value);
+  });
 
   // Save / Export
   document.getElementById('btnSave').addEventListener('click',()=>{if(saveState())showToast('success','✅','הנתונים נשמרו בהצלחה.');});
