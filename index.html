@@ -354,12 +354,13 @@ let autosaveTimer = null;
 // ROBUST CSV PARSER (async, Windows-safe)
 // ═══════════════════════════════════════════════════
 async function parseCSVFile(file) {
-  function readAs(f, encoding) {
+  // Read file as raw bytes (ArrayBuffer) — then decode with TextDecoder
+  function readAsBuffer(f) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result);
+      reader.onload = e => resolve(new Uint8Array(e.target.result));
       reader.onerror = () => reject(new Error('FileReader error'));
-      reader.readAsText(f, encoding);
+      reader.readAsArrayBuffer(f);
     });
   }
   function normalise(raw) {
@@ -398,34 +399,58 @@ async function parseCSVFile(file) {
     });
   }
 
-  // Detect valid Hebrew: Unicode block U+05D0–U+05EA
-  function hasHebrew(text) { return /[א-ת]/.test(text); }
+  // Count Hebrew characters (U+0590–U+05FF) — more is better
+  function countHebrew(text) {
+    const m = text.match(/[֐-׿]/g);
+    return m ? m.length : 0;
+  }
 
-  // Try encodings in order — pick first that produces readable Hebrew text.
-  // CRM exports are often Windows-1255 (Hebrew Windows) which reads as garbage in UTF-8.
-  const ENCODINGS = ['utf-8', 'windows-1255', 'windows-1252', 'iso-8859-8'];
-  let rawText = null, usedEncoding = 'utf-8';
+  // Read raw bytes once
+  let bytes;
+  try { bytes = await readAsBuffer(file); }
+  catch(e) { throw new Error('שגיאה בקריאת הקובץ. אנא נסה שנית.'); }
 
-  for (const enc of ENCODINGS) {
+  // Check for UTF-8 BOM (EF BB BF) — if present, file is definitely UTF-8
+  const hasBOM = bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+
+  // Check for UTF-16 LE BOM (FF FE)
+  const hasUTF16LE = bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE;
+
+  // Check for UTF-16 BE BOM (FE FF)
+  const hasUTF16BE = bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF;
+
+  // Build encoding list — BOM-detected encoding goes first
+  let encodings;
+  if (hasBOM)          encodings = ['utf-8'];
+  else if (hasUTF16LE) encodings = ['utf-16le'];
+  else if (hasUTF16BE) encodings = ['utf-16be'];
+  else                 encodings = ['utf-8', 'windows-1255', 'iso-8859-8-i', 'iso-8859-8', 'windows-1252'];
+
+  // Try each encoding — pick the one with the most Hebrew characters
+  let bestText = null, bestCount = -1, bestEnc = 'utf-8';
+
+  for (const enc of encodings) {
     try {
-      const decoded = normalise(await readAs(file, enc));
-      if (hasHebrew(decoded)) { rawText = decoded; usedEncoding = enc; break; }
-    } catch(e) { /* try next */ }
+      const decoder = new TextDecoder(enc, { fatal: false });
+      const decoded = normalise(decoder.decode(bytes));
+      const hCount = countHebrew(decoded);
+      if (hCount > bestCount) {
+        bestText = decoded;
+        bestCount = hCount;
+        bestEnc = enc;
+      }
+      // If BOM was detected, trust it — don't try others
+      if (hasBOM || hasUTF16LE || hasUTF16BE) break;
+    } catch(e) { /* encoding not supported, skip */ }
   }
 
-  // Last resort: UTF-8 even if no Hebrew detected
-  if (!rawText) {
-    try { rawText = normalise(await readAs(file, 'utf-8')); usedEncoding = 'utf-8'; }
-    catch(e) { throw new Error('שגיאה בקריאת הקובץ. אנא נסה שנית.'); }
-  }
+  if (!bestText) throw new Error('שגיאה בקריאת הקובץ. אנא נסה שנית.');
 
-  const headerLine = rawText.split('\n')[0] || '';
+  const headerLine = bestText.split('\n')[0] || '';
   const delimiter  = detectDelimiter(headerLine);
-  const windowsFile = delimiter === ';' || usedEncoding !== 'utf-8';
+  const windowsFile = delimiter === ';' || bestEnc !== 'utf-8';
 
-  try {
-    return { rows: parseText(rawText, delimiter), delimiter, encoding: usedEncoding, windowsFile };
-  } catch(err) { throw err; }
+  return { rows: parseText(bestText, delimiter), delimiter, encoding: bestEnc, windowsFile };
 }
 
 // ═══════════════════════════════════════════════════
