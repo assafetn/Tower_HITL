@@ -297,7 +297,7 @@ td.notes-cell{min-width:140px;max-width:220px;overflow:visible;white-space:norma
 <footer class="footer">
   <span id="footerSave">טרם נשמר</span>
   <span id="footerCount">0 רשומות בזיכרון</span>
-  <span>HITL Dashboard v3.0 · Migdal DATA &amp; AI</span>
+  <span>HITL Dashboard v4.1 · Migdal DATA &amp; AI</span>
 </footer>
 <div class="toast-host" id="toastHost"></div>
 <div class="spinner-overlay" id="spinner"><div class="spinner"></div><span>מעבד נתונים...</span></div>
@@ -389,27 +389,7 @@ async function parseCSVFile(file) {
       const delimLabel = delimiter===';' ? 'נקודה-פסיק (;)' : 'פסיק (,)';
       throw new Error(`פורמט הקובץ אינו תואם. זוהו ${headers.length} עמודות (צפוי: ${EXPECTED_HEADERS.length}).\nמפריד שזוהה: ${delimLabel}.\nאנא ודא שהקובץ יוצא מה-CRM ללא שינויים.`);
     }
-    // Strip invisible Unicode control/direction characters before comparing
-    function normalizeHeader(h) {
-      return h
-        .replace(/[‎‏‪-‮⁦-⁩​﻿]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    }
-    // Match: expected header must appear as a substring of the actual header
-    // (handles cases where Windows CRM prepends metadata to column names)
-    const checkH = headers.slice(0, EXPECTED_HEADERS.length);
-    const mismatches = checkH
-      .map((h, i) => ({
-        got:      normalizeHeader(h),
-        expected: normalizeHeader(EXPECTED_HEADERS[i]),
-        idx:      i
-      }))
-      .filter(x => !x.got.includes(x.expected) && !x.expected.includes(x.got));
-    if (mismatches.length > 0) {
-      const detail = mismatches.slice(0,3).map(x=>`עמודה ${x.idx+1}: קיבלתי "${x.got}", ציפיתי "${x.expected}"`).join('\n');
-      throw new Error(`שמות העמודות אינם תואמים:\n${detail}`);
-    }
+    // Header names vary between CRM exports — validation is by column count only.
     return lines.slice(1).map(line => {
       const vals = splitLine(line, delimiter);
       const row = {};
