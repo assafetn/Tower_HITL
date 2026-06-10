@@ -95,6 +95,9 @@ button{font-family:inherit;cursor:pointer} input,textarea{font-family:inherit}
 .kpi-card{background:#fff;border-radius:var(--r-md);padding:14px 16px;box-shadow:var(--sh-2);border:1px solid var(--mig-line);position:relative;overflow:hidden}
 .kpi-card.kpi-total-rows{background:linear-gradient(135deg,rgba(61,101,227,.06),rgba(61,101,227,.12));border-color:var(--mig-blue);border-right:3px solid var(--mig-blue)}
 .kpi-card.kpi-success-rate{background:linear-gradient(135deg,rgba(162,235,154,.1),rgba(162,235,154,.22));border-color:var(--mig-green-700);border-right:3px solid var(--mig-green-700)}
+.kpi-card.kpi-highlight{min-width:200px;padding:20px 24px;background:linear-gradient(135deg,rgba(2,1,64,.04),rgba(61,101,227,.08));border-right:4px solid var(--mig-blue);box-shadow:var(--sh-3)}
+.kpi-card.kpi-highlight .kpi-value{font-size:36px}
+.kpi-card.kpi-highlight .kpi-title{font-size:14px;font-weight:700}
 .kpi-title{font-size:11px;font-weight:700;color:var(--mig-slate-600);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kpi-value{font-size:30px;font-weight:800;color:var(--mig-ink);line-height:1}
 .kpi-sub{font-size:11px;color:var(--mig-slate-400);margin-top:3px}
@@ -319,7 +322,7 @@ td.notes-cell{min-width:140px;max-width:220px;overflow:visible;white-space:norma
 <footer class="footer">
   <span id="footerSave">טרם נשמר</span>
   <span id="footerCount">0 רשומות בזיכרון</span>
-  <span>HITL Dashboard v4.1 · Migdal DATA &amp; AI</span>
+  <span>HITL Dashboard v5.0 · Migdal DATA &amp; AI</span>
 </footer>
 <div class="toast-host" id="toastHost"></div>
 <div class="spinner-overlay" id="spinner"><div class="spinner"></div><span>מעבד נתונים...</span></div>
@@ -352,7 +355,6 @@ const EVAL_COLS = [
   {idx:9,key:'J',label:'סטטוס טיפול'},
   {idx:10,key:'K',label:'סוג הדוח הופק'},
   {idx:11,key:'L',label:'סיבת המצב'},
-  {idx:12,key:'M',label:'סוג שגיאה'},
 ];
 const EVAL_COUNT = EVAL_COLS.length;
 
@@ -619,37 +621,64 @@ function renderStatusFilters() {
 // ═══════════════════════════════════════════════════
 // KPI
 // ═══════════════════════════════════════════════════
+function computeOverallSuccessRate(rows) {
+  let positive = 0, negative = 0;
+  rows.forEach(row => {
+    const vals = EVAL_COLS.map(c => row.evals[c.idx]);
+    const allEvaluated = vals.every(v => v === 'good' || v === 'bad');
+    if (!allEvaluated) return;
+    if (vals.some(v => v === 'bad')) negative++; else positive++;
+  });
+  const total = positive + negative;
+  const pct = total > 0 ? ((positive / total) * 100).toFixed(1) : null;
+  return { positive, negative, total, pct };
+}
+
 function computeKPIs() {
   const rows=filteredIdxs.map(i=>state.rows[i]); const total=rows.length;
-  let totalEval=0, totalAllEvals=0, totalGood=0;
+  let totalEval=0;
   const cols=EVAL_COLS.map(c=>({col:c,ev:0,good:0,bad:0}));
   rows.forEach(row => {
     let re=false;
     cols.forEach(cs => {
       const v=row.evals[cs.col.idx];
-      if(v==='good'){cs.ev++;cs.good++;re=true;totalAllEvals++;totalGood++;}
-      else if(v==='bad'){cs.ev++;cs.bad++;re=true;totalAllEvals++;}
+      if(v==='good'){cs.ev++;cs.good++;re=true;}
+      else if(v==='bad'){cs.ev++;cs.bad++;re=true;}
     });
     if(re) totalEval++;
   });
-  return {total,totalEval,cols,totalAllEvals,totalGood};
+  const overall = computeOverallSuccessRate(rows);
+  return {total,totalEval,cols,overall};
 }
 
 function renderKPIs() {
-  const {total,totalEval,cols,totalAllEvals,totalGood}=computeKPIs();
+  const {total,totalEval,cols,overall}=computeKPIs();
   const el=document.getElementById('kpiRow');
   const evalPct=total>0?Math.round(totalEval/total*100):0;
-  const sPct=totalAllEvals>0?(totalGood/totalAllEvals*100):0;
-  const sD=totalAllEvals>0?sPct.toFixed(1)+'%':'—';
-  const pW=totalAllEvals>0?Math.round(sPct):0;
+  const sD=overall.pct!==null?overall.pct+'%':'—';
+  const pW=overall.pct!==null?Math.round(parseFloat(overall.pct)):0;
+
+  // 1. Overall success rate (highlighted)
   let html=`
-    <div class="kpi-card kpi-success-rate"><div class="kpi-title">שיעור הצלחה כולל</div><div class="kpi-value">${sD}</div><div class="kpi-sub">${totalGood.toLocaleString()} תקין מתוך ${totalAllEvals.toLocaleString()} בדיקות</div><div class="kpi-progress"><div class="kpi-progress-bar" style="width:${pW}%"></div></div></div>
+    <div class="kpi-card kpi-success-rate kpi-highlight"><div class="kpi-title">שיעור הצלחה כולל</div><div class="kpi-value">${sD}</div><div class="kpi-sub">${overall.positive.toLocaleString()} הצלחות מתוך ${overall.total.toLocaleString()} שורות שנבדקו</div><div class="kpi-progress"><div class="kpi-progress-bar" style="width:${pW}%"></div></div></div>`;
+
+  // 2. Column H card (highlighted) — first in cols array
+  const colH=cols[0];
+  const hGP=colH.ev>0?Math.round(colH.good/colH.ev*100):0;
+  const hBP=colH.ev>0?Math.round(colH.bad/colH.ev*100):0;
+  const hPend=total-colH.ev;
+  html+=`<div class="kpi-card kpi-highlight" style="border-top:3px solid #3d65e3"><div class="kpi-title" title="${escH(colH.col.label)}">${escH(colH.col.label)}</div><div class="kpi-value">${colH.ev.toLocaleString()}</div><div class="kpi-sub">מתוך ${total} שורות</div><div class="kpi-stats"><span class="kpi-stat good">✅ ${colH.good} (${hGP}%)</span><span class="kpi-stat bad">❌ ${colH.bad} (${hBP}%)</span>${hPend>0?`<span class="kpi-stat pend">⏳ ${hPend}</span>`:''}</div></div>`;
+
+  // 3. Total rows + evaluated count
+  html+=`
     <div class="kpi-card kpi-total-rows"><div class="kpi-title">סה"כ שורות</div><div class="kpi-value">${total.toLocaleString()}</div><div class="kpi-sub">בטווח הנבחר</div></div>
     <div class="kpi-card"><div class="kpi-title">נבדקו</div><div class="kpi-value">${totalEval.toLocaleString()}</div><div class="kpi-sub">${evalPct}% מהשורות</div></div>`;
-  const accs=['#3d65e3','#0891b2','#7c3aed','#ea580c','#3f8568','#b65058'];
-  cols.forEach((cs,i)=>{
+
+  // 4. Remaining per-column cards (skip index 0 = col H, already rendered)
+  const accs=['#3d65e3','#0891b2','#7c3aed','#ea580c','#3f8568'];
+  cols.slice(1).forEach((cs,i)=>{
     const pend=total-cs.ev; const gP=cs.ev>0?Math.round(cs.good/cs.ev*100):0; const bP=cs.ev>0?Math.round(cs.bad/cs.ev*100):0;
-    html+=`<div class="kpi-card" style="border-top:3px solid ${accs[i]}"><div class="kpi-title" title="${escH(cs.col.label)}">${escH(cs.col.label)}</div><div class="kpi-value">${cs.ev.toLocaleString()}</div><div class="kpi-sub">מתוך ${total} שורות</div><div class="kpi-stats"><span class="kpi-stat good">✅ ${cs.good} (${gP}%)</span><span class="kpi-stat bad">❌ ${cs.bad} (${bP}%)</span>${pend>0?`<span class="kpi-stat pend">⏳ ${pend}</span>`:''}</div></div>`;
+    html+=`<div class="kpi-card" style="border-top:3px solid ${accs[i+1]}"><div class="kpi-title" title="${escH(cs.col.label)}">${escH(cs.col.label)}</div><div class="kpi-value">${cs.ev.toLocaleString()}</div><div class="kpi-sub">מתוך ${total} שורות</div><div class="kpi-stats"><span class="kpi-stat good">✅ ${cs.good} (${gP}%)</span><span class="kpi-stat bad">❌ ${cs.bad} (${bP}%)</span>${pend>0?`<span class="kpi-stat pend">⏳ ${pend}</span>`:''}</div></div>`;
   });
   el.innerHTML=html;
 }
@@ -718,6 +747,11 @@ function renderTable() {
       const ev=row.evals[col.idx];
       tds+=`<td class="eval-cell"><div class="eval-wrap"><div class="eval-val${empty?' na':''}" title="${empty?'':escH(raw)}">${display}</div><div class="eval-btns"><button class="ebtn-icon${ev==='good'?' sel-good':''}" data-ri="${rowIdx}" data-ci="${col.idx}" data-v="good" title="תקין">${IC_CHECK}</button><button class="ebtn-icon${ev==='bad'?' sel-bad':''}" data-ri="${rowIdx}" data-ci="${col.idx}" data-v="bad" title="שגוי">${IC_X}</button></div></div></td>`;
     });
+
+    // סוג שגיאה (column M, idx 12) — display-only, no eval buttons
+    const errRaw=row.cells[12];
+    const errEmpty=!errRaw||errRaw.trim()===''||errRaw.trim()==='#N/A';
+    tds+=`<td class="wrap-cell" title="${errEmpty?'':escH(errRaw)}">${errEmpty?'—':escH(trunc(errRaw,28))}</td>`;
 
     // Notes column
     const noteVal=escH(row.notes||'');
@@ -924,9 +958,8 @@ async function exportData() {
     return { good, bad, evaluated, pct };
   });
 
-  const totalAllEvals = kpiData.reduce((s, k) => s + k.evaluated, 0);
-  const totalGood = kpiData.reduce((s, k) => s + k.good, 0);
-  const overallPct = totalAllEvals > 0 ? ((totalGood / totalAllEvals) * 100).toFixed(1) + '%' : '—';
+  const overallExport = computeOverallSuccessRate(state.rows);
+  const overallPct = overallExport.pct !== null ? overallExport.pct + '%' : '—';
 
   const kpiHeaderRow = ws.addRow([
     'סיכום KPI', '', '', '', '', '', '',
@@ -980,7 +1013,7 @@ async function exportData() {
   evalRow.getCell(1).font = { bold: true, size: 10, name: 'Arial' };
 
   const overallRow = ws.addRow([
-    `שיעור הצלחה כולל: ${overallPct}`, '', '', '', '', '', '',
+    `שיעור הצלחה כולל: ${overallExport.positive} מתוך ${overallExport.total} שורות (${overallPct})`, '', '', '', '', '', '',
     '', '', '', '', '', '', ''
   ]);
   overallRow.getCell(1).font = { bold: true, size: 12, name: 'Arial', color: { argb: 'FF020140' } };
